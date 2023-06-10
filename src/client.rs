@@ -21,17 +21,7 @@ async fn listen() -> Result<(), Box<dyn std::error::Error>> {
 
     println!("streaming");
     while let Some(item) = stream.next().await {
-        match item {
-            Ok(item) => println!("{:?}", item),
-            Err(err) => {
-                if err.code() == tonic::Code::NotFound {
-                    println!("watched item has been removed from the inventory.");
-                    break;
-                } else {
-                    return Err(err.into());
-                }
-            }
-        };
+        println!("{:?}", item);
     }
     println!("stream closed");
 
