@@ -10,7 +10,7 @@ fn main() {
         .build_server(true)
         .build_client(true)
         .out_dir("src/generated")
-        .compile(&[proto_file], &["."])
+        .compile(&[proto_file], &["proto"])
         .unwrap_or_else(|e| panic!("protobuf compile error: {}", e));
   
         println!("cargo:rerun-if-changed={}", proto_file);
