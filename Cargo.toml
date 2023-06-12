@@ -3,8 +3,6 @@ name = "l2spread"
 version = "0.1.0"
 edition = "2021"
 
-# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
-
 [[bin]]
 name = "server"
 path = "src/server.rs"
@@ -15,10 +13,15 @@ path = "src/client.rs"
 
 [dependencies]
 tonic = "0.8"
-tokio = { version = "1.24", features = ["macros", "rt-multi-thread"] }
+tokio = { version = "1.28.2", features = ["macros", "rt-multi-thread"] }
 tokio-stream = { version = "0.1", features = ["net"] }
+tokio-tungstenite = { version = "0.19.0", features = ["native-tls"] }
 futures = "0.3"
+futures-util = "0.3.28"
 prost = "0.11"
+url = "2.4.0"
 
 [build-dependencies]
 tonic-build = "0.8"
+tokio = "1.28.2"
+tokio-tungstenite = "0.19.0"
