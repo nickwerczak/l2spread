@@ -5,6 +5,7 @@ use futures_util::{StreamExt, SinkExt};
 
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
+use bincode;
 
 use crate::exchange_ob;
 use exchange_ob::{ExchangeOrderbookDataLevel, ExchangeOrderbook};
@@ -62,7 +63,6 @@ pub fn format(data: &Vec<u8>) -> Option<ExchangeOrderbook> {
     let data_str = String::from_utf8(data.to_vec()).unwrap();
     let json: Value = serde_json::from_str(&data_str).unwrap(); 
     if json.get("event").is_some() && json["event"] == "data" {
-        //println!("NICK BITSTAMP: {}", json);
         let json: BitstampOrderbook = serde_json::from_value(json).unwrap();
         let exchange_orderbook: ExchangeOrderbook = bitstamp_to_exchange_orderbook(&json);
         return Some(exchange_orderbook);
@@ -84,12 +84,8 @@ pub async fn bitstamp_ob_listener (tx: &UnboundedSender<Vec<u8>>) -> Result<(), 
         let data = message.unwrap().into_data();
         match format(&data) {
             Some(data) => {
-                match serde_json::to_vec(&data) {
-                    Ok(data) => {
-                        let _ = tx.send(data);
-                    },
-                    Err(_) => (),
-                }
+                let encoded: Vec<u8> = bincode::serialize(&data).unwrap();
+                let _ = tx.send(encoded);
             },
             None => (),
         }

@@ -5,6 +5,7 @@ use futures_util::{StreamExt, SinkExt};
 
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
+use bincode;
 
 use crate::exchange_ob;
 use exchange_ob::{ExchangeOrderbookDataLevel, ExchangeOrderbook};
@@ -54,10 +55,8 @@ pub fn format(data: &Vec<u8>) -> Option<ExchangeOrderbook> {
         return None;
     }
     let data_str = String::from_utf8(data.to_vec()).unwrap();
-    //println!("NICK BINANCE: {}", data_str);
     let json: Value = serde_json::from_str(&data_str).unwrap();
     if json.get("lastUpdateId").is_some() {
-        //println!("NICK BINANCE: {}", json);
         let json: BinanceOrderbook = serde_json::from_value(json).unwrap();
         let exchange_orderbook: ExchangeOrderbook = binance_to_exchange_orderbook(&json);
         return Some(exchange_orderbook);
@@ -71,13 +70,6 @@ pub async fn binance_ob_listener (tx: &UnboundedSender<Vec<u8>>) -> Result<(), (
     let (ws_stream, _response) = connect_async(url).await.expect("Failed to connect");
     let (mut write, read) = ws_stream.split();
 
-    /*
-    write.send(Message::Text(r#"{
-        "id": 1,
-        "method": "SUBSCRIBE",
-        "params": ["btcusd@depth10"]
-    }"#.to_string()+"\n")).await.unwrap();
-    */
     write.send(Message::Text(r#"{
         "id": 1,
         "method": "SUBSCRIBE",
@@ -88,12 +80,8 @@ pub async fn binance_ob_listener (tx: &UnboundedSender<Vec<u8>>) -> Result<(), (
         let data = message.unwrap().into_data();
         match format(&data) {
             Some(data) => {
-                match serde_json::to_vec(&data) {
-                    Ok(data) => {
-                        let _ = tx.send(data);
-                    },
-                    Err(_) => (),
-                }
+                let encoded: Vec<u8> = bincode::serialize(&data).unwrap();
+                let _ = tx.send(encoded);
             },
             None => (),
         }

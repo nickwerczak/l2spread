@@ -3,16 +3,7 @@ pub mod orderbook;
 use futures::StreamExt;
 
 use orderbook::orderbook_aggregator_client::OrderbookAggregatorClient;
-use orderbook::{Empty, Summary, Level};
-
-
-
-
-
-
-
-
-
+use orderbook::Empty;
 
 async fn listen() -> Result<(), Box<dyn std::error::Error>> {
     let mut client = OrderbookAggregatorClient::connect("http://0.0.0.0:50051").await?;
@@ -27,9 +18,6 @@ async fn listen() -> Result<(), Box<dyn std::error::Error>> {
 
     Ok(())
 }
-
-
-
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
