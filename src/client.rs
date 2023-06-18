@@ -12,7 +12,7 @@ async fn listen() -> Result<(), Box<dyn std::error::Error>> {
 
     println!("streaming");
     while let Some(item) = stream.next().await {
-        println!("{:?}", item);
+        println!("{:?}", item.unwrap());
     }
     println!("stream closed");
 
