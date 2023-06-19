@@ -45,30 +45,6 @@ impl MyServer {
         (cid, client_rx)
     }
 
-    fn print_summary(summary: &Summary) {
-        print!("{}spread: {} bids: [", "{", summary.spread);
-        for i in 0..summary.bids.len() {
-            print!("[{}, {}, {}], ", summary.bids[i].exchange, summary.bids[i].price, summary.bids[i].amount);
-        }
-        print!("] asks: [");
-        for i in 0..summary.asks.len() {
-            print!("[{}, {}, {}], ", summary.asks[i].exchange, summary.asks[i].price, summary.asks[i].amount);
-        }
-        println!("]{}", "}");
-    }
-
-    fn print_exchange_ob(exchange_ob: &ExchangeOrderbook) {
-        print!("{}exchange: {} bids: [", "{", exchange_ob.exchange);
-        for i in 0..exchange_ob.bids.len() {
-            print!("[{}, {}], ", exchange_ob.bids[i][0], exchange_ob.bids[i][1]);
-        }
-        print!("] asks: [");
-        for i in 0..exchange_ob.asks.len() {
-            print!("[{}, {}], ", exchange_ob.asks[i][0], exchange_ob.asks[i][1]);
-        }
-        println!("]{}", "}");
-    }
-
     fn compare(sum1: &Summary, sum2: &Summary) -> bool {
         if sum1.spread != sum2.spread {
             return false;
@@ -136,8 +112,6 @@ impl MyServer {
                 asks: vec![[f64::MAX, 0.0]; 10],
             };
             while let Some(exchange_ob) = listener_rx.recv().await {
-                MyServer::print_summary(&summary);
-                MyServer::print_exchange_ob(&exchange_ob);
                 if exchange_ob.exchange == "binance" {
                     binance_ob = exchange_ob;
                 }
@@ -151,13 +125,10 @@ impl MyServer {
                 let curr = MyServer::merge_orderbooks(&binance_ob, &bitstamp_ob);
                 if !MyServer::compare(&summary, &curr) {
                     summary = curr.clone();
-                    println!("run(): acquiring lock ...");
                     let clients_connections = clients.lock().await;
                     for tx in clients_connections.values() {
                         let _ = tx.send(curr.clone());
                     }
-                    drop(clients_connections);
-                    println!("run(): dropped lock ...");
                 }
             }
         });

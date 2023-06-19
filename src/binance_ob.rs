@@ -48,7 +48,6 @@ pub fn binance_to_exchange_orderbook(json: &BinanceOrderbook) -> ExchangeOrderbo
     return exchange_orderbook;
 }
 
-
 pub fn format(data: &Vec<u8>) -> Option<ExchangeOrderbook> {
     if data.is_empty() {
         return None;
