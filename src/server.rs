@@ -5,8 +5,6 @@ use tokio_stream::wrappers::UnboundedReceiverStream;
 use tonic::{Request, Response, Status};
 use tonic::transport::Server;
 
-use bincode;
-
 use std::sync::Arc;
 use tokio::sync::Mutex;
 
@@ -137,8 +135,7 @@ impl MyServer {
                 bids: vec![[0.0, 0.0]; 10],
                 asks: vec![[f64::MAX, 0.0]; 10],
             };
-            while let Some(data) = listener_rx.recv().await {
-                let exchange_ob: ExchangeOrderbook = bincode::deserialize::<ExchangeOrderbook>(&data).unwrap();
+            while let Some(exchange_ob) = listener_rx.recv().await {
                 MyServer::print_summary(&summary);
                 MyServer::print_exchange_ob(&exchange_ob);
                 if exchange_ob.exchange == "binance" {

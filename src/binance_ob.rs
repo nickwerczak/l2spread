@@ -5,7 +5,6 @@ use futures_util::{StreamExt, SinkExt};
 
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
-use bincode;
 
 use crate::exchange_ob;
 use exchange_ob::{ExchangeOrderbookDataLevel, ExchangeOrderbook};
@@ -64,7 +63,7 @@ pub fn format(data: &Vec<u8>) -> Option<ExchangeOrderbook> {
     None
 }
 
-pub async fn binance_ob_listener (tx: &UnboundedSender<Vec<u8>>) -> Result<(), ()> {
+pub async fn binance_ob_listener (tx: &UnboundedSender<ExchangeOrderbook>) -> Result<(), ()> {
     let url = url::Url::parse("wss://stream.binance.us:9443/ws").unwrap();
     //let url = url::Url::parse("wss://data-stream.binance.vision/stream?streams=btcusdt@trade").unwrap();
     let (ws_stream, _response) = connect_async(url).await.expect("Failed to connect");
@@ -80,8 +79,7 @@ pub async fn binance_ob_listener (tx: &UnboundedSender<Vec<u8>>) -> Result<(), (
         let data = message.unwrap().into_data();
         match format(&data) {
             Some(data) => {
-                let encoded: Vec<u8> = bincode::serialize(&data).unwrap();
-                let _ = tx.send(encoded);
+                let _ = tx.send(data);
             },
             None => (),
         }
