@@ -62,17 +62,16 @@ pub fn format(data: &Vec<u8>) -> Option<ExchangeOrderbook> {
     None
 }
 
-pub async fn binance_ob_listener (tx: &UnboundedSender<ExchangeOrderbook>) -> Result<(), ()> {
+pub async fn binance_ob_listener (tx: &UnboundedSender<ExchangeOrderbook>, pair: &str) -> Result<(), ()> {
     let url = url::Url::parse("wss://stream.binance.us:9443/ws").unwrap();
     //let url = url::Url::parse("wss://data-stream.binance.vision/stream?streams=btcusdt@trade").unwrap();
     let (ws_stream, _response) = connect_async(url).await.expect("Failed to connect");
     let (mut write, read) = ws_stream.split();
 
-    write.send(Message::Text(r#"{
-        "id": 1,
-        "method": "SUBSCRIBE",
-        "params": ["btcusd@depth10@100ms"]
-    }"#.to_string()+"\n")).await.unwrap();
+    let channel = "[\"".to_string() + pair + "@depth10@100ms" + "\"]";
+    let subscribe_str = r#"{"id": 1, "method": "SUBSCRIBE", "params": "#.to_string()
+                        + &channel + "}";
+    write.send(Message::Text(subscribe_str)).await.unwrap();
 
     let read_future = read.for_each(|message| async {
         let data = message.unwrap().into_data();

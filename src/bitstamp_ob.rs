@@ -69,15 +69,15 @@ pub fn format(data: &Vec<u8>) -> Option<ExchangeOrderbook> {
     None
 }
 
-pub async fn bitstamp_ob_listener (tx: &UnboundedSender<ExchangeOrderbook>) -> Result<(), ()> {
+pub async fn bitstamp_ob_listener (tx: &UnboundedSender<ExchangeOrderbook>, pair: &str) -> Result<(), ()> {
     let url = url::Url::parse("wss://ws.bitstamp.net").unwrap();
     let (ws_stream, _response) = connect_async(url).await.expect("Failed to connect");
     let (mut write, read) = ws_stream.split();
 
-    write.send(Message::Text(r#"{
-        "event": "bts:subscribe",
-        "data": {"channel": "order_book_btcusdt"}
-      }"#.to_string()+"\n")).await.unwrap();
+    let channel = "\"order_book_".to_string() + pair + "\"";
+    let subscribe_str = r#"{"event": "bts:subscribe", "data": {"channel": "#.to_string()
+                        + &channel + "}}";
+    write.send(Message::Text(subscribe_str)).await.unwrap();
 
     let read_future = read.for_each(|message| async {
         let data = message.unwrap().into_data();

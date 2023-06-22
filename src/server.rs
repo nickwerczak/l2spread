@@ -5,6 +5,7 @@ use tokio_stream::wrappers::UnboundedReceiverStream;
 use tonic::{Request, Response, Status};
 use tonic::transport::Server;
 
+use std::env;
 use std::sync::Arc;
 use tokio::sync::Mutex;
 
@@ -21,14 +22,16 @@ use orderbook::{Empty, Summary, Level};
 pub struct MyServer {
     clients: Arc<Mutex<HashMap<i64, mpsc::UnboundedSender<Summary>>>>,
     client_id: Arc<Mutex<i64>>,
+    pair: String,
 }
 
 impl MyServer {
-    fn new() -> Self {
+    fn new(instrument: String) -> Self {
         MyServer {
             clients: Arc::new(Mutex::new(HashMap::<i64,
                                          mpsc::UnboundedSender<Summary>>::new())),
             client_id: Arc::new(Mutex::new(0)),
+            pair: instrument,
         }
     }
 
@@ -83,17 +86,20 @@ impl MyServer {
     async fn run(&self) {
         let (listener_tx, mut listener_rx) = mpsc::unbounded_channel();
         let clients = self.clients.clone();
+        let pair = self.pair.clone();
         tokio::spawn(async move {
+            let bnce_pair = pair.clone();
             let bnce_sender = listener_tx.clone();
             tokio::spawn(async move {
                 println!("starting binance listener...");
-                binance_ob::binance_ob_listener(&bnce_sender).await.unwrap();
+                binance_ob::binance_ob_listener(&bnce_sender, &bnce_pair).await.unwrap();
             });
 
+            let stmp_pair = pair.clone();
             let stmp_sender = listener_tx.clone();
             tokio::spawn(async move {
                 println!("starting bitstamp listener...");
-                bitstamp_ob::bitstamp_ob_listener(&stmp_sender).await.unwrap();
+                bitstamp_ob::bitstamp_ob_listener(&stmp_sender, &stmp_pair).await.unwrap();
             });
 
             let mut summary = Summary {
@@ -266,10 +272,13 @@ impl OrderbookAggregator for MyServer {
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
-
-    println!("starting server...");
+    let mut pair = "btcusd".to_string();
+    if let Some(arg) = env::args().nth(1) {
+        pair = arg;
+    }
+    println!("starting server for {}...", pair);
     let addr = "0.0.0.0:50051".parse()?;
-    let orderbook_aggregator_server = MyServer::new();
+    let orderbook_aggregator_server = MyServer::new(pair);
     orderbook_aggregator_server.run().await;
     Server::builder()
         .add_service(OrderbookAggregatorServer::new(orderbook_aggregator_server))
