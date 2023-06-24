@@ -7,7 +7,7 @@ use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
 use crate::exchange_ob;
-use exchange_ob::{ExchangeOrderbookDataLevel, ExchangeOrderbook};
+use exchange_ob::ExchangeOrderbook;
 
 type BitstampOrderbookDataLevel = [String; 2];
 
@@ -26,45 +26,38 @@ pub struct BitstampOrderbook {
     event: String,
 }
 
-pub fn bitstamp_to_exchange_orderbook(json: &BitstampOrderbook) -> ExchangeOrderbook {
-    let mut bids: Vec<ExchangeOrderbookDataLevel> = Vec::new();
-    let v = &json.data.bids;
-    for i in 0..v.len() {
-        let price: f64 = (&v[i][0]).parse().unwrap();
-        let amount: f64 = (&v[i][1]).parse().unwrap();
-        bids.push([price, amount]);
+pub fn bitstamp_to_exchange_orderbook(json: &BitstampOrderbook, exchange_ob: &mut ExchangeOrderbook) {
+    for i in 0..json.data.bids.len() {
+        exchange_ob.bids[i][0] = json.data.bids[i][0].parse().unwrap();
+        exchange_ob.bids[i][1] = json.data.bids[i][1].parse().unwrap();
         if i == 9 {
             break;
         }
     }
-    let mut asks: Vec<ExchangeOrderbookDataLevel> = Vec::new();
-    let v = &json.data.asks;
-    for i in 0..v.len() {
-        let price: f64 = (&v[i][0]).parse().unwrap();
-        let amount: f64 = (&v[i][1]).parse().unwrap();
-        asks.push([price, amount]);
+    for i in 0..json.data.asks.len() {
+        exchange_ob.asks[i][0] = json.data.asks[i][0].parse().unwrap();
+        exchange_ob.asks[i][1] = json.data.asks[i][0].parse().unwrap();
         if i == 9 {
             break;
         }
     }
-    let exchange_orderbook = ExchangeOrderbook {
-        exchange: String::from("bitstamp"),
-        bids: bids,
-        asks: asks
-    };
-    return exchange_orderbook;
 }
 
 pub fn format(data: &Vec<u8>) -> Option<ExchangeOrderbook> {
     if data.is_empty() {
         return None;
     }
+    let mut exchange_ob = ExchangeOrderbook {
+        exchange: String::from("bitstamp"),
+        bids: vec![[0.0, 0.0]; 10],
+        asks: vec![[f64::MAX, 0.0]; 10],
+    };
     let data_str = String::from_utf8(data.to_vec()).unwrap();
     let json: Value = serde_json::from_str(&data_str).unwrap(); 
     if json.get("event").is_some() && json["event"] == "data" {
         let json: BitstampOrderbook = serde_json::from_value(json).unwrap();
-        let exchange_orderbook: ExchangeOrderbook = bitstamp_to_exchange_orderbook(&json);
-        return Some(exchange_orderbook);
+        bitstamp_to_exchange_orderbook(&json, &mut exchange_ob);
+        return Some(exchange_ob);
     }
     None
 }
