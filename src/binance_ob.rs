@@ -33,7 +33,7 @@ pub fn binance_to_exchange_orderbook(json: &BinanceOrderbook, exchange_ob: &mut 
     for i in 0..10 {
         if i < json.asks.len() {
             exchange_ob.asks[i][0] = json.asks[i][0].parse().unwrap();
-            exchange_ob.asks[i][1] = json.asks[i][0].parse().unwrap();
+            exchange_ob.asks[i][1] = json.asks[i][1].parse().unwrap();
         }
         else {
             exchange_ob.asks[i][0] = f64::MAX;

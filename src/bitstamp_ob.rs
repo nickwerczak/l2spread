@@ -40,7 +40,7 @@ pub fn bitstamp_to_exchange_orderbook(json: &BitstampOrderbook, exchange_ob: &mu
     for i in 0..10 {
         if i < json.data.asks.len() {
             exchange_ob.asks[i][0] = json.data.asks[i][0].parse().unwrap();
-            exchange_ob.asks[i][1] = json.data.asks[i][0].parse().unwrap();
+            exchange_ob.asks[i][1] = json.data.asks[i][1].parse().unwrap();
         }
         else {
             exchange_ob.bids[i][0] = f64::MAX;
