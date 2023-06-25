@@ -102,7 +102,12 @@ impl MyServer {
                 bitstamp_ob::bitstamp_ob_listener(&stmp_sender, &stmp_pair).await.unwrap();
             });
 
-            let mut summary = Summary {
+            let mut prev_summary = Summary {
+                spread: 0.0,
+                bids: vec![Level {exchange: String::from(""), price: 0.0, amount: 0.0,}; 10],
+                asks: vec![Level {exchange: String::from(""), price: f64::MAX, amount: 0.0,}; 10],
+            };
+            let mut curr_summary = Summary {
                 spread: 0.0,
                 bids: vec![Level {exchange: String::from(""), price: 0.0, amount: 0.0,}; 10],
                 asks: vec![Level {exchange: String::from(""), price: f64::MAX, amount: 0.0,}; 10],
@@ -128,116 +133,90 @@ impl MyServer {
                     println!("ERROR: unsupported exchange name");
                     return;
                 }
-                let curr = MyServer::merge_orderbooks(&binance_ob, &bitstamp_ob);
-                if !MyServer::compare(&summary, &curr) {
-                    summary = curr.clone();
+                MyServer::merge_orderbooks(&binance_ob, &bitstamp_ob, &mut curr_summary);
+                if !MyServer::compare(&prev_summary, &curr_summary) {
+                    prev_summary = curr_summary.clone();
                     let clients_connections = clients.lock().await;
                     for tx in clients_connections.values() {
-                        let _ = tx.send(curr.clone());
+                        let _ = tx.send(curr_summary.clone());
                     }
                 }
             }
         });
     }
 
-    fn merge_bids(ob1: &ExchangeOrderbook, ob2: &ExchangeOrderbook) -> Vec<Level> {
+    fn merge_bids(ob1: &ExchangeOrderbook, ob2: &ExchangeOrderbook, bids: &mut Vec<Level>) {
         let mut i = 0;
         let mut j = 0;
         let mut k = 0;
-        let mut bids = vec![Level {exchange: String::from(""), price: 0.0, amount: 0.0,}; 10];
         while i < ob1.bids.len() && j < ob2.bids.len() && k < 10 {
             let ob1_price = ob1.bids[i][0];
             let ob2_price = ob2.bids[j][0];
             if ob1_price > ob2_price {
-                bids[k] = Level {
-                    exchange: ob1.exchange.clone(),
-                    price: ob1_price,
-                    amount: ob1.bids[i][1]
-                };
+                bids[k].exchange = ob1.exchange.clone();
+                bids[k].price = ob1_price;
+                bids[k].amount = ob1.bids[i][1];
                 k += 1; i += 1;
             }
             else if ob1_price < ob2_price {
-                bids[k] = Level {
-                    exchange: ob2.exchange.clone(),
-                    price: ob2_price,
-                    amount: ob2.bids[j][1]
-                };
+                bids[k].exchange = ob2.exchange.clone();
+                bids[k].price = ob2_price;
+                bids[k].amount = ob2.bids[i][1];
                 k += 1; j += 1;
             }
             else if ob1_price == ob2_price {
-                bids[k] = Level {
-                    exchange: ob1.exchange.clone(),
-                    price: ob1_price,
-                    amount: ob1.bids[i][1]
-                };
+                bids[k].exchange = ob1.exchange.clone();
+                bids[k].price = ob1_price;
+                bids[k].amount = ob1.bids[i][1];
                 k += 1; i += 1;
                 if k < 10 {
-                    bids[k] = Level {
-                        exchange: ob2.exchange.clone(),
-                        price: ob2_price,
-                        amount: ob2.bids[j][1]
-                    };
+                    bids[k].exchange = ob2.exchange.clone();
+                    bids[k].price = ob2_price;
+                    bids[k].amount = ob2.bids[i][1];
                     k += 1; j += 1;
                 }
             }
         }
-        bids
     }
 
-    fn merge_asks(ob1: &ExchangeOrderbook, ob2: &ExchangeOrderbook) -> Vec<Level> {
+    fn merge_asks(ob1: &ExchangeOrderbook, ob2: &ExchangeOrderbook, asks: &mut Vec<Level>) {
         let mut i = 0;
         let mut j = 0;
         let mut k = 0;
-        let mut asks = vec![Level {exchange: String::from(""), price: 0.0, amount: 0.0,}; 10];
         while i < ob1.asks.len() && j < ob2.asks.len() && k < 10 {
             let ob1_price = ob1.asks[i][0];
             let ob2_price = ob2.asks[j][0];
             if ob1_price < ob2_price {
-                asks[k] = Level {
-                    exchange: ob1.exchange.clone(),
-                    price: ob1_price,
-                    amount: ob1.asks[i][1]
-                };
+                asks[k].exchange = ob1.exchange.clone();
+                asks[k].price = ob1_price;
+                asks[k].amount = ob1.asks[i][1];
                 k += 1; i += 1;
             }
             else if ob1_price > ob2_price {
-                asks[k] = Level {
-                    exchange: ob2.exchange.clone(),
-                    price: ob2_price,
-                    amount: ob2.asks[j][1]
-                };
+                asks[k].exchange = ob2.exchange.clone();
+                asks[k].price = ob2_price;
+                asks[k].amount = ob2.asks[i][1];
                 k += 1; j += 1;
             }
             else if ob1_price == ob2_price {
-                asks[k] = Level {
-                    exchange: ob1.exchange.clone(),
-                    price: ob1_price,
-                    amount: ob1.asks[i][1]
-                };
+                asks[k].exchange = ob1.exchange.clone();
+                asks[k].price = ob1_price;
+                asks[k].amount = ob1.asks[i][1];
                 k += 1; i += 1;
                 if k < 10 {
-                    asks[k] = Level {
-                        exchange: ob2.exchange.clone(),
-                        price: ob2_price,
-                        amount: ob2.asks[j][1]
-                    };
+                    asks[k].exchange = ob2.exchange.clone();
+                    asks[k].price = ob2_price;
+                    asks[k].amount = ob2.asks[i][1];
                     k += 1; j += 1;
                 }
             }
         }
-        asks
     }
 
-    fn merge_orderbooks(ob1:  &ExchangeOrderbook, ob2:  &ExchangeOrderbook) -> Summary {
-        let bids: Vec<Level> = MyServer::merge_bids(&ob1, &ob2);
-        let asks: Vec<Level> = MyServer::merge_asks(&ob1, &ob2);
-        let spread = asks[0].price - bids[0].price;
-        let ret = Summary {
-            spread: spread,
-            bids: bids,
-            asks: asks,
-        };
-        ret
+    fn merge_orderbooks(ob1:  &ExchangeOrderbook, ob2:  &ExchangeOrderbook, summary: &mut Summary) {
+        MyServer::merge_bids(&ob1, &ob2, &mut summary.bids);
+        MyServer::merge_asks(&ob1, &ob2, &mut summary.asks);
+        summary.spread = summary.asks[0].price - summary.bids[0].price;
     }
 }
 

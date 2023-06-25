@@ -27,60 +27,63 @@ pub struct BitstampOrderbook {
 }
 
 pub fn bitstamp_to_exchange_orderbook(json: &BitstampOrderbook, exchange_ob: &mut ExchangeOrderbook) {
-    for i in 0..json.data.bids.len() {
-        exchange_ob.bids[i][0] = json.data.bids[i][0].parse().unwrap();
-        exchange_ob.bids[i][1] = json.data.bids[i][1].parse().unwrap();
-        if i == 9 {
-            break;
+    for i in 0..10 {
+        if i < json.data.bids.len() {
+            exchange_ob.bids[i][0] = json.data.bids[i][0].parse().unwrap();
+            exchange_ob.bids[i][1] = json.data.bids[i][1].parse().unwrap();
+        }
+        else {
+            exchange_ob.bids[i][0] = 0.0;
+            exchange_ob.bids[i][1] = 0.0;
         }
     }
-    for i in 0..json.data.asks.len() {
-        exchange_ob.asks[i][0] = json.data.asks[i][0].parse().unwrap();
-        exchange_ob.asks[i][1] = json.data.asks[i][0].parse().unwrap();
-        if i == 9 {
-            break;
+    for i in 0..10 {
+        if i < json.data.asks.len() {
+            exchange_ob.asks[i][0] = json.data.asks[i][0].parse().unwrap();
+            exchange_ob.asks[i][1] = json.data.asks[i][0].parse().unwrap();
+        }
+        else {
+            exchange_ob.bids[i][0] = f64::MAX;
+            exchange_ob.bids[i][1] = 0.0;
         }
     }
 }
 
-pub fn format(data: &Vec<u8>) -> Option<ExchangeOrderbook> {
+pub fn format(data: &Vec<u8>, exchange_ob: &mut ExchangeOrderbook) -> bool {
     if data.is_empty() {
-        return None;
+        return false;
     }
-    let mut exchange_ob = ExchangeOrderbook {
-        exchange: String::from("bitstamp"),
-        bids: vec![[0.0, 0.0]; 10],
-        asks: vec![[f64::MAX, 0.0]; 10],
-    };
     let data_str = String::from_utf8(data.to_vec()).unwrap();
     let json: Value = serde_json::from_str(&data_str).unwrap(); 
     if json.get("event").is_some() && json["event"] == "data" {
         let json: BitstampOrderbook = serde_json::from_value(json).unwrap();
-        bitstamp_to_exchange_orderbook(&json, &mut exchange_ob);
-        return Some(exchange_ob);
+        bitstamp_to_exchange_orderbook(&json, exchange_ob);
+        return true;
     }
-    None
+    false
 }
 
 pub async fn bitstamp_ob_listener (tx: &UnboundedSender<ExchangeOrderbook>, pair: &str) -> Result<(), ()> {
     let url = url::Url::parse("wss://ws.bitstamp.net").unwrap();
     let (ws_stream, _response) = connect_async(url).await.expect("Failed to connect");
-    let (mut write, read) = ws_stream.split();
+    let (mut write, mut read) = ws_stream.split();
 
     let channel = "\"order_book_".to_string() + pair + "\"";
     let subscribe_str = r#"{"event": "bts:subscribe", "data": {"channel": "#.to_string()
                         + &channel + "}}";
     write.send(Message::Text(subscribe_str)).await.unwrap();
 
-    let read_future = read.for_each(|message| async {
-        let data = message.unwrap().into_data();
-        match format(&data) {
-            Some(data) => {
-                let _ = tx.send(data);
-            },
-            None => (),
+    let mut exchange_ob = ExchangeOrderbook {
+        exchange: String::from("bitstamp"),
+        bids: vec![[0.0, 0.0]; 10],
+        asks: vec![[f64::MAX, 0.0]; 10],
+    };
+
+    while let Some(msg) = read.next().await {
+        let data = msg.unwrap().into_data();
+        if format(&data, &mut exchange_ob) {
+            let _ = tx.send(exchange_ob.clone());
         }
-    });
-    read_future.await;
+    }
     Ok(())
 }
