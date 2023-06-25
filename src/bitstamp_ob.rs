@@ -74,7 +74,7 @@ pub async fn bitstamp_ob_listener (tx: &UnboundedSender<ExchangeOrderbook>, pair
     write.send(Message::Text(subscribe_str)).await.unwrap();
 
     let mut exchange_ob = ExchangeOrderbook {
-        exchange: String::from("bitstamp"),
+        exchange: "bitstamp".to_string(),
         bids: vec![[0.0, 0.0]; 10],
         asks: vec![[f64::MAX, 0.0]; 10],
     };
