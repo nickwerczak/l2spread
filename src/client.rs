@@ -1,4 +1,4 @@
-pub mod orderbook;
+mod orderbook;
 
 use futures::StreamExt;
 
